@@ -743,6 +743,15 @@ class Assignment(Model):
             Backup.submit == True
         ).order_by(Backup.created.desc())
 
+    def zombies(self):
+        """ Return a query for the submissions from everyone who has submitted for
+        this assignment.
+        """
+        return Backup.query.filter(
+            Backup.assignment_id == self.id,
+            Backup.submit == True
+        ).order_by(Backup.created.desc())
+
     def final_submission(self, user_ids):
         """ Return a final submission for a user, or None."""
         return (Backup.query

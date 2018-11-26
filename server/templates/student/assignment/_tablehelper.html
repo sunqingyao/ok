@@ -133,6 +133,50 @@
   {% endif %}
 {% endmacro %}
 
+{% macro render_zombies(zombies, course, flagged, flag_form, tname="Zombies", empty=True) %}
+  {% if zombies %}
+  <div class="list hidden-xs hidden-sm">
+    <div class="wrap">
+      <h2>{{ tname }}</h2>
+      <table>
+        <tr class="header">
+          <th class="col-id">ID</th>
+          <th class="col-author">Author</th>
+          <th class="col-code">Code</th>
+        </tr>
+        {% for zombie in zombies %}
+        <tr>
+          <td>
+            <a href="{{ url_for('.zombie', name=assignment.name, bid=zombie.id, submit=zombie.submit)}}" data-no-instant>
+              Zombie {{ globals.backup_style(zombie.hashid) }}
+            </a>
+          </td>
+          <td>
+            <div class="due-dot grey"></div>
+            <div class="due">
+              <span class="due-text grey">{{ zombie.submitter.email }}</span>
+              <span class="due-date">{{ utils.local_time(zombie.created, course) }}</span>
+            </div>
+          </td>
+          <td>
+              <a href="{{ url_for('.zombie', name=assignment.name, bid=zombie.id, submit=zombie.submit)}}" class="no-dash button-small" data-no-instant>
+                View Code
+              </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
+  </div>
+  {% elif empty %}
+  <div class="list hidden-xs hidden-sm">
+    <div class="wrap">
+      <h2>No {{ tname }}</h2>
+    </div>
+  </div>
+  {% endif %}
+{% endmacro %}
+
 {% macro render_subms_mobile(subms, course, flagged, flag_form, tname="Submissions", empty=True) %}
   {% if subms %}
   <div class="subcontent list hidden-md hidden-lg">
@@ -213,6 +257,39 @@
                       <i class="fa fa-flag final-no"></i> <a class="dashed">Submit & Flag for Grading</a>
                   </button>
                 {% endcall %}
+            </div>
+        </div>
+      </div>
+          <div class="cell-footer">
+        </div>
+
+      {% endfor %}
+    </div>
+  </div>
+  {% elif empty %}
+  <div class="subcontent list hidden-md hidden-lg">
+    <div class="wrap">
+      <h2>No {{ tname }}</h2>
+    </div>
+  </div>
+  {% endif %}
+{% endmacro %}
+
+{% macro render_zombies_mobile(zombies, course, flagged, flag_form, tname="Zombies", empty=True) %}
+  {% if zombies %}
+  <div class="subcontent list hidden-md hidden-lg">
+    <div class="wrap">
+      <h2>{{tname}}</h2>
+      {% for zombie in zombies %}
+
+      <div class="cell col-xs-12">
+        <div class="cell-title"><a href="{{ url_for('.code', name=assignment.name, bid=zombie.id, submit=zombie.submit)}}" data-no-instant> {{ utils.local_time(zombie.created, course) }} </a></div>
+        <div class="cell-text"><span>Submitter:  {{ zombie.submitter.email }}</span></div>
+        <div class="cell-status">
+            <div class="pull-left">
+                <a href="{{url_for('.zombie', name=assignment.name, bid=zombie.id, submit=zombie.submit)}}" class="dashed" data-no-instant>
+                    View Code
+                </a>
             </div>
         </div>
       </div>

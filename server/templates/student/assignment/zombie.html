@@ -1,0 +1,97 @@
+{% extends "student/base.html" %}
+{% import 'diff.html' as diff with context %}
+{% import '_globalhelpers.html' as globals %}
+
+{% block title %} Assignment | Ok {% endblock %}
+
+{% block body %}
+    <main>
+      {% include 'student/assignment/sidebar.html' %}
+      <div class="col-md-2"></div>
+      <section class="content nomapa col-md-10 col-xs-12">
+
+        {% include 'student/header.html' %}
+
+        {% set backup_type = 'Zombie' %}
+        <div class="subcontent heading">
+          <div class="wrap">
+            <div class="string-nav" role="navigation" aria-label="page navigation">
+              <span><a href="{{ url_for('.index') }}">Courses</a></span> &raquo;
+              <span><a href="{{ url_for('.course', offering=course.offering) }}"> {{ course.display_name_with_semester }}</a></span> &raquo;
+              <span><a href="{{ url_for('.assignment', name=assignment.name) }}"> {{ assignment.display_name }}</a></span> &raquo;
+              <span> {{backup_type}} {{ globals.backup_style(utils.encode_id(zombie.id)) }} </span>
+            </div>
+            <h3 class="text-center">Received on {{ utils.local_time(zombie.created, course) }} from {{ zombie.submitter.email }}</h3>
+             {% if zombie.scores %}
+                {% for score in zombie.published_scores %}
+                    <h3 class="text-center">
+                      <span class="label label-primary">{{ score.kind.title() }}: {{ score.score | round(2) }}</span>
+                    </h3>
+                    {% if score.kind == "composition" %}
+                      <p class="text-center"> Grader: {{ score.grader.email }} </p>
+                    {% endif %}
+                    {% if score.message | length < 100 %}
+                    <p class="text-center"> Message: {{ score.message }}  </p>
+                    {% else %}
+                    <pre class="score-box">{{ score.message }}</pre>
+                    {% endif %}
+
+                    {% if score.kind == "composition" %}
+                        {% include 'student/assignment/list_comments.html' %}
+                    {% endif %}
+                {% endfor %}
+            {% endif %}
+          </div>
+          {% include 'alerts.html' %}
+        </div>
+
+        {% macro diff_tab(target_diff_type, text) %}
+          <li role="presentation" class="{{ 'active' if diff_type == target_diff_type else '' }}">
+            <a href="{{ url_for('.zombie', name=assignment.name, bid=zombie.id, diff=target_diff_type) }}">{{ text }}</a>
+          </li>
+        {% endmacro %}
+
+        {% if assignment.files %}
+          <div class="subcontent">
+            <ul class="nav nav-tabs nav-justified">
+              {{ diff_tab(None, 'Files') }}
+              {{ diff_tab('short', 'Diff (short)') }}
+              {{ diff_tab('full', 'Diff (full)') }}
+            </ul>
+          </div>
+        {% endif %}
+
+        <div class="subcontent list" role="main">
+          <div class="wrap">
+            {{ diff.render_files(zombie, files) }}
+          </div>
+        </div>
+      </section>
+    </main>
+    <script type="text/template" data-no-instant id="editor-template">
+      <!-- Comment Box Template, IE does not support <template> -->
+      {{ diff.editor_template() }}
+    </script>
+{% endblock %}
+
+{% block page_css %}
+  {{ css_asset("code_css") }}
+  <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.7.1/katex.min.css">
+{% endblock %}
+
+{% block page_js %}
+  {{ js_asset("code_js") }}
+<script>
+var ipyFiles = {
+    {% for filename, file in files | dictsort %}
+        {% if file.extension == ".ipynb" %}
+            {{ filename.lower() | tojson }} : {{ file.source | tojson }},
+        {% endif %}
+    {% endfor %}
+}
+
+$(document).ready(function() {
+    displayNotebooks(ipyFiles)
+})
+</script>
+{% endblock %}

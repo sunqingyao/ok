@@ -51,6 +51,10 @@
                           View Code
                         </a>
                         <br>
+                        <a href="{{ url_for('.list_zombies', name=assignment.name)}}" class="dashed" data-no-instant>
+                            Hunt Zombies
+                        </a>
+                        <br>
                         {% if revision %}
                           <a href="{{ url_for('.code', name=assignment.name, bid=revision.id, submit=revision.submit)}}" class="dashed" data-no-instant>
                             View Composition Revision

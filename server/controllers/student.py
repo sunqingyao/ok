@@ -247,6 +247,21 @@ def list_backups(name, submit):
                            assignment=assign, paginate=paginate, submit=submit,
                            csrf_form=csrf_form)
 
+
+@student.route('/<assignment_name:name>/zombies/')
+@login_required
+def list_zombies(name):
+    assign = get_assignment(name)
+    page = request.args.get('page', 1, type=int)
+    csrf_form = CSRFForm()
+
+    backups = assign.zombies()
+    paginate = backups.paginate(page=page, per_page=10)
+
+    return render_template('student/assignment/list_zombies.html', course=assign.course,
+                           assignment=assign, paginate=paginate, csrf_form=csrf_form)
+
+
 @student.route('/<assignment_name:name>/<bool(backups, submissions):submit>/<hashid:bid>/')
 @login_required
 def code(name, submit, bid):
@@ -280,6 +295,38 @@ def code(name, submit, bid):
     return render_template('student/assignment/code.html',
         course=assign.course, assignment=assign, backup=backup,
         files=files, diff_type=diff_type)
+
+@student.route('/<assignment_name:name>/zombie/<hashid:bid>/')
+@login_required
+def zombie(name, bid):
+    assign = get_assignment(name)
+    zombie_ = Backup.query.get(bid)
+
+    if not zombie_:
+        abort(404)
+
+    diff_type = request.args.get('diff')
+    if diff_type not in (None, 'short', 'full'):
+        return redirect(url_for('.zombie', name=name, bid=bid))
+    if not assign.files and diff_type:
+        return abort(404)
+
+    # sort comments by (filename, line)
+    comments = collections.defaultdict(list)
+    for comment in zombie_.comments:
+        comments[(comment.filename, comment.line)].append(comment)
+    # highlight files and add comments
+    files = highlight.diff_files(assign.files, zombie_.files(), diff_type)
+    for filename, source_file in files.items():
+        for line in source_file.lines:
+            line.comments = comments[(filename, line.line_after)]
+
+    for filename, ex_file in zombie_.external_files_dict().items():
+        files[filename] = ex_file
+
+    return render_template('student/assignment/zombie.html',
+                           course=assign.course, assignment=assign, zombie=zombie_,
+                           files=files, diff_type=diff_type)
 
 
 @student.route('/<assignment_name:name>/<bool(backups, submissions):submit>/'
