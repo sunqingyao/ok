@@ -3,6 +3,7 @@ from flask import (Blueprint, render_template, flash, request, redirect,
 from flask_login import login_required, current_user
 from werkzeug.exceptions import BadRequest
 
+import datetime
 import collections
 import logging
 import os
@@ -302,7 +303,7 @@ def zombie(name, bid):
     assign = get_assignment(name)
     zombie_ = Backup.query.get(bid)
 
-    if not zombie_:
+    if not (zombie_ and datetime.datetime.now() > assign.lock_date):
         abort(404)
 
     diff_type = request.args.get('diff')
