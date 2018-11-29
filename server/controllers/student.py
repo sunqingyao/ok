@@ -123,7 +123,8 @@ def assignment(name):
         'can_invite': can_invite,
         'can_remove': can_remove,
         'has_extension': has_extension,
-        'csrf_form': CSRFForm()
+        'csrf_form': CSRFForm(),
+        'dead': datetime.datetime.now() > assign.lock_date
     }
     return render_template('student/assignment/index.html', **data)
 
@@ -253,6 +254,10 @@ def list_backups(name, submit):
 @login_required
 def list_zombies(name):
     assign = get_assignment(name)
+
+    if not datetime.datetime.now() > assign.lock_date:
+        abort(403)
+
     page = request.args.get('page', 1, type=int)
     csrf_form = CSRFForm()
 
@@ -270,7 +275,7 @@ def code(name, submit, bid):
     backup = Backup.query.get(bid)
 
     if not (backup and Backup.can(backup, current_user, "view")):
-        abort(404)
+        abort(403)
     if backup.submit != submit:
         return redirect(url_for('.code', name=name, submit=backup.submit, bid=bid))
 

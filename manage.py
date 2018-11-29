@@ -31,6 +31,7 @@ class RunTests(Command):
 
 
 manager.add_command("server", Server(host='localhost'))
+manager.add_command("external", Server(host='0.0.0.0', port='80'))
 manager.add_command("show-urls", ShowUrls())
 manager.add_command("clean", Clean())
 manager.add_command('db', MigrateCommand)

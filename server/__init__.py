@@ -74,6 +74,12 @@ def create_app(environment_name=None):
             return api.handle_error(error)
         return render_template('errors/404.html'), 404
 
+    @app.errorhandler(403)
+    def not_found_error(error):
+        if request.path.startswith("/api"):
+            return api.handle_error(error)
+        return render_template('errors/403.html'), 403
+
     @app.route("/healthz")
     def health_check():
         return 'OK'
