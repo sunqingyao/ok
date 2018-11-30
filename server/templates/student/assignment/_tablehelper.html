@@ -166,7 +166,7 @@
           <th class="col-code">Code</th>
         </tr>
         {% for zombie in zombies %}
-        <tr>
+        <tr {% if zombie.submitter == current_user %} style="background: #fcf8e3" {% endif %}>
           <td>
             <a href="{{ url_for('.zombie', name=assignment.name, bid=zombie.id, submit=zombie.submit)}}" data-no-instant>
               Zombie {{ globals.backup_style(zombie.hashid) }}
@@ -329,7 +329,7 @@
       <h2>{{tname}}</h2>
       {% for zombie in zombies %}
 
-      <div class="cell col-xs-12">
+      <div class="cell col-xs-12"  {% if zombie.submitter == current_user %} style="background: #fcf8e3" {% endif %}>
         <div class="cell-title"><a href="{{ url_for('.code', name=assignment.name, bid=zombie.id, submit=zombie.submit)}}" data-no-instant> {{ utils.local_time(zombie.created, course) }} </a></div>
         <div class="cell-text"><span>Submitter:  {{ zombie.submitter.email }}</span></div>
         <div class="cell-status">
