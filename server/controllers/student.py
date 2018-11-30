@@ -349,7 +349,7 @@ def zombie(name, bid):
 
     return render_template('student/assignment/zombie.html',
                            course=assign.course, assignment=assign, zombie=zombie_,
-                           files=files, diff_type=diff_type)
+                           files=files, diff_type=diff_type, vote_form=CSRFForm())
 
 
 @student.route('/<assignment_name:name>/submissions/<hashid:bid>/vote/',

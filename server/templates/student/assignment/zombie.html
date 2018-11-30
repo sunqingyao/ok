@@ -1,6 +1,7 @@
 {% extends "student/base.html" %}
 {% import 'diff.html' as diff with context %}
 {% import '_globalhelpers.html' as globals %}
+{% import 'student/assignment/_formhelpers.html' as forms %}
 
 {% block title %} Assignment | Ok {% endblock %}
 
@@ -44,6 +45,29 @@
           </div>
           {% include 'alerts.html' %}
         </div>
+
+      <div class="subcontent" style="margin: 3rem 0">
+      <div class="col-md-6">
+          {% call forms.render_form(vote_form, action_url=url_for('.vote', name=assignment.name, bid=zombie.id), class_='form-inline') %}
+              <input type="hidden" name="type" value="up">
+              <input type="hidden" name="next" value="{{ request.url }}">
+              <button class="convert-button tip-trigger final-button button-small" type="submit">
+              <i class="fa fa-arrow-up fa-2x final-{{ 'yes' if upvoted(current_user, zombie) else 'no' }}"></i>
+                  <h4>Upvotes: {{ zombie.upvote_count }}</h4>
+              </button>
+              {% endcall %}
+      </div>
+      <div class="col-md-6">
+            {% call forms.render_form(vote_form, action_url=url_for('.vote', name=assignment.name, bid=zombie.id), class_='form-inline') %}
+              <input type="hidden" name="type" value="down">
+              <input type="hidden" name="next" value="{{ request.url }}">
+              <button class="convert-button tip-trigger final-button button-small" type="submit">
+              <i class="fa fa-arrow-down fa-2x final-{{ 'yes' if downvoted(current_user, zombie) else 'no' }}"></i>
+                  <h4>Downvotes: {{ zombie.downvote_count }}</h4>
+              </button>
+              {% endcall %}
+      </div>
+      </div>
 
         {% macro diff_tab(target_diff_type, text) %}
           <li role="presentation" class="{{ 'active' if diff_type == target_diff_type else '' }}">
