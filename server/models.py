@@ -902,7 +902,7 @@ class Assignment(Model):
             feedback.positive = True
             db.session.add(feedback)
             backup.upvote_count += 1
-            backup.downvote_count += 1
+            backup.downvote_count -= 1
         db.session.add(backup)
         return backup
 
