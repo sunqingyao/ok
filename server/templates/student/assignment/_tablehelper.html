@@ -179,25 +179,33 @@
               <span class="due-date">{{ utils.local_time(zombie.created, course) }}</span>
             </div>
           </td>
-            <td>
+            <td class="row">
 
+            <div class="col-md-6" style="padding-right: 0;">
               {% call forms.render_form(vote_form, action_url=url_for('.vote', name=assignment.name, bid=zombie.id), class_='form-inline') %}
               <input type="hidden" name="type" value="up">
               <input type="hidden" name="next" value="{{ request.url }}">
-              <button class="convert-button tip-trigger final-button button-small" type="submit">
-              <i class="fa fa-arrow-up final-{{ 'yes' if upvoted(current_user, zombie) else 'no' }}"></i>
-                  Upvotes: {{ zombie.upvote_count }}
+              <button class="convert-button tip-trigger final-button button-small"
+                      {% if upvoted(current_user, zombie) %} style="background-color: #666; color: #FFF; text-decoration: none;" {% endif %}
+                      type="submit">
+              <i class="fa fa-arrow-up final-{{ 'inverse' if upvoted(current_user, zombie) else 'no' }}"></i>
+                  {{ zombie.upvote_count }}
               </button>
               {% endcall %}
+            </div>
 
+            <div class="col-md-6" style="padding-left: 0;">
             {% call forms.render_form(vote_form, action_url=url_for('.vote', name=assignment.name, bid=zombie.id), class_='form-inline') %}
               <input type="hidden" name="type" value="down">
               <input type="hidden" name="next" value="{{ request.url }}">
-              <button class="convert-button tip-trigger final-button button-small" type="submit">
-              <i class="fa fa-arrow-down final-{{ 'yes' if downvoted(current_user, zombie) else 'no' }}"></i>
-                  Downvotes: {{ zombie.downvote_count }}
+              <button class="convert-button tip-trigger final-button button-small"
+                      {% if downvoted(current_user, zombie) %} style="background-color: #666; color: #FFF; text-decoration: none;" {% endif %}
+                      type="submit">
+              <i class="fa fa-arrow-down final-{{ 'inverse' if downvoted(current_user, zombie) else 'no' }}"></i>
+                  {{ zombie.downvote_count }}
               </button>
               {% endcall %}
+            </div>
             </td>
           <td>
               <a href="{{ url_for('.zombie', name=assignment.name, bid=zombie.id, submit=zombie.submit)}}" class="no-dash button-small" data-no-instant>

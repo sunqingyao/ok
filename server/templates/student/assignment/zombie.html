@@ -51,8 +51,9 @@
           {% call forms.render_form(vote_form, action_url=url_for('.vote', name=assignment.name, bid=zombie.id), class_='form-inline') %}
               <input type="hidden" name="type" value="up">
               <input type="hidden" name="next" value="{{ request.url }}">
-              <button class="convert-button tip-trigger final-button button-small" type="submit">
-              <i class="fa fa-arrow-up fa-2x final-{{ 'yes' if upvoted(current_user, zombie) else 'no' }}"></i>
+              <button class="convert-button tip-trigger final-button button-small"
+                      {% if upvoted(current_user, zombie) %} style="background-color: #666; color: #FFF; text-decoration: none;" {% endif %}
+                      type="submit">
                   <h4>Upvotes: {{ zombie.upvote_count }}</h4>
               </button>
               {% endcall %}
@@ -61,8 +62,9 @@
             {% call forms.render_form(vote_form, action_url=url_for('.vote', name=assignment.name, bid=zombie.id), class_='form-inline') %}
               <input type="hidden" name="type" value="down">
               <input type="hidden" name="next" value="{{ request.url }}">
-              <button class="convert-button tip-trigger final-button button-small" type="submit">
-              <i class="fa fa-arrow-down fa-2x final-{{ 'yes' if downvoted(current_user, zombie) else 'no' }}"></i>
+              <button class="convert-button tip-trigger final-button button-small"
+                      {% if downvoted(current_user, zombie) %} style="background-color: #666; color: #FFF; text-decoration: none;" {% endif %}
+                      type="submit">
                   <h4>Downvotes: {{ zombie.downvote_count }}</h4>
               </button>
               {% endcall %}
