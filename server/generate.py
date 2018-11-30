@@ -354,7 +354,7 @@ def seed_feedback():
         for enrollment in user.enrollments():
             for assignment in enrollment.course.assignments:
                 for backup in assignment.submissions(all_users):
-                    if gen_bool(0.8):
+                    if gen_bool(0.2):
                         db.session.add(gen_feedback(user, backup))
     db.session.commit()
 
