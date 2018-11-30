@@ -13,13 +13,14 @@ from server import highlight, models, utils
 from server.autograder import submit_continuous
 from server.constants import VALID_ROLES, STAFF_ROLES, STUDENT_ROLE, MAX_UPLOAD_FILE_SIZE
 from server.forms import CSRFForm, UploadSubmissionForm
-from server.models import (User, Course, Assignment, Group, Backup, Message,
-                           ExternalFile, Extension, db)
+from server.models import (User, Course, Assignment, Group, Backup, Feedback,
+                           Message, ExternalFile, Extension, db)
 from server.utils import is_safe_redirect_url, send_emails, invite_email
 
 logger = logging.getLogger(__name__)
 
 student = Blueprint('student', __name__)
+
 
 def check_enrollment(course):
     enrolled = current_user.is_enrolled(course.id)
@@ -47,6 +48,22 @@ def get_assignment(name):
         abort(404)
     check_enrollment(assignment.course)
     return assignment
+
+
+def upvoted(user, backup):
+    return Feedback.query.filter_by(
+        user_id=user.id,
+        backup_id=backup.id,
+        positive=True
+    ).count() > 0
+
+
+def downvoted(user, backup):
+    return Feedback.query.filter_by(
+        user_id=user.id,
+        backup_id=backup.id,
+        positive=False
+    ).count() > 0
 
 
 @student.route('/')
@@ -308,8 +325,8 @@ def zombie(name, bid):
     assign = get_assignment(name)
     zombie_ = Backup.query.get(bid)
 
-    if not (zombie_ and datetime.datetime.now() > assign.lock_date):
-        abort(404)
+    if not (zombie_ and Backup.can(zombie_, current_user, "view")):
+        abort(403)
 
     diff_type = request.args.get('diff')
     if diff_type not in (None, 'short', 'full'):
@@ -333,6 +350,35 @@ def zombie(name, bid):
     return render_template('student/assignment/zombie.html',
                            course=assign.course, assignment=assign, zombie=zombie_,
                            files=files, diff_type=diff_type)
+
+
+@student.route('/<assignment_name:name>/submissions/<hashid:bid>/vote/',
+               methods=['POST'])
+@login_required
+def vote(name, bid):
+    assign = get_assignment(name)
+    vote_type = request.form.get('type')
+    next_url = request.form['next']
+
+    backup = models.Backup.query.get(bid)
+    if not Backup.can(backup, current_user, "view"):
+        abort(403)
+
+    if vote_type == 'up':
+        result = assign.upvote(current_user.id, bid)
+        flash('Toggled upvoting submission {}. '.format(result.hashid), 'success')
+    elif vote_type == 'down':
+        result = assign.downvote(current_user.id, bid)
+        flash('Toggled downvoting submission {}. '.format(result.hashid), 'success')
+    else:
+        flash("Not a valid vote type", "danger")
+        abort(400)
+
+    if is_safe_redirect_url(request, next_url):
+        return redirect(next_url)
+    else:
+        flash("Not a valid redirect", "danger")
+        abort(400)
 
 
 @student.route('/<assignment_name:name>/<bool(backups, submissions):submit>/'
@@ -376,8 +422,8 @@ def flag(name, bid):
     next_url = request.form['next']
 
     backup = models.Backup.query.get(bid)
-    if not Backup.can(backup, current_user, "view"):
-        abort(404)
+    if not Backup.can(backup, current_user, "edit"):
+        abort(403)
 
     if not assign.active:
         flash('It is too late to change what submission is graded.', 'warning')
@@ -389,6 +435,33 @@ def flag(name, bid):
         result = assign.unflag(bid, user_ids)
         flash('Removed flag from {}. '.format(result.hashid) +
               'The most recent submission will be used for grading.', 'success')
+
+    if is_safe_redirect_url(request, next_url):
+        return redirect(next_url)
+    else:
+        flash("Not a valid redirect", "danger")
+        abort(400)
+
+
+@student.route('/<assignment_name:name>/submissions/<hashid:bid>/share/',
+               methods=['POST'])
+@login_required
+def share(name, bid):
+    assign = get_assignment(name)
+    user_ids = assign.active_user_ids(current_user.id)
+    share = 'share' in request.form
+    next_url = request.form['next']
+
+    backup = models.Backup.query.get(bid)
+    if not Backup.can(backup, current_user, "edit"):
+        abort(403)
+
+    if share:
+        result = assign.share(bid, user_ids)
+        flash('Made submission {} visible to others. '.format(result.hashid), 'success')
+    else:
+        result = assign.unshare(bid, user_ids)
+        flash('Hidden submission {} from others. '.format(result.hashid), 'success')
 
     if is_safe_redirect_url(request, next_url):
         return redirect(next_url)

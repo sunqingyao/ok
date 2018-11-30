@@ -9,7 +9,7 @@ import names
 import pytz
 
 from server.models import (db, User, Course, Assignment, Enrollment, Group,
-                           Backup, Message, Comment, Version, Score,
+                           Backup, Feedback, Message, Comment, Version, Score,
                            GradingTask, Client)
 from server.constants import STUDENT_ROLE, OAUTH_SCOPES
 from server.extensions import cache
@@ -215,13 +215,15 @@ def gen_backup(user, assignment):
     seconds_offset = random.randrange(-100000, 100000)
     messages = gen_messages(assignment, seconds_offset)
     submit = gen_bool(0.3)
+    share = submit and gen_bool(0.8)
     if submit:
         messages['file_contents']['submit'] = ''
     backup = Backup.create(
         created=assignment.due_date + datetime.timedelta(seconds=seconds_offset),
         submitter=user,
         assignment=assignment,
-        submit=submit)
+        submit=submit,
+        share=share)
     backup.messages = [Message(kind=k, contents=m) for k, m in messages.items()]
     return backup
 
@@ -239,6 +241,17 @@ def gen_comment(backup):
         filename=filename,
         line=line,
         message=gen_markdown())
+
+def gen_feedback(user, backup):
+    positive = gen_bool(0.8)
+    if positive:
+        backup.upvote_count += 1
+    else:
+        backup.downvote_count += 1
+    db.session.add(backup)
+    return Feedback(positive=positive,
+                    user_id=user.id,
+                    backup_id=backup.id)
 
 def gen_score(backup, admin, kind="autograder"):
     created = datetime.datetime.now() - datetime.timedelta(minutes=random.randrange(100))
@@ -332,6 +345,19 @@ def seed_comments():
         comments = gen_list(functools.partial(gen_comment, backup), 6)
         db.session.add_all(comments)
     db.session.commit()
+
+
+def seed_feedback():
+    print('Seeding feedback...')
+    all_users = [user.id for user in User.query.all()]
+    for user in User.query.all():
+        for enrollment in user.enrollments():
+            for assignment in enrollment.course.assignments:
+                for backup in assignment.submissions(all_users):
+                    if gen_bool(0.8):
+                        db.session.add(gen_feedback(user, backup))
+    db.session.commit()
+
 
 def seed_scores():
     print('Seeding scores...')
@@ -445,6 +471,7 @@ def seed():
     seed_enrollments()
     seed_backups()
     seed_comments()
+    seed_feedback()
     seed_groups()
     seed_flags()
     seed_queues()

@@ -14,7 +14,7 @@ from server.controllers.api import endpoints as api_endpoints
 from server.controllers.api import api  # Flask Restful API
 from server.controllers.auth import auth, login_manager
 from server.controllers.oauth import oauth
-from server.controllers.student import student
+from server.controllers.student import student, upvoted, downvoted
 from server.controllers.queue import queue
 from server.controllers.files import files
 from server.constants import API_PREFIX
@@ -130,7 +130,9 @@ def create_app(environment_name=None):
         'utils': utils,
         'debug': app.debug,
         'instantclick': app.config.get('INSTANTCLICK', True),
-        'CSRFForm': CSRFForm
+        'CSRFForm': CSRFForm,
+        'upvoted': upvoted,
+        'downvoted': downvoted
     })
 
     app.jinja_env.filters.update({

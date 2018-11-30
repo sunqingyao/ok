@@ -749,8 +749,9 @@ class Assignment(Model):
         """
         return Backup.query.filter(
             Backup.assignment_id == self.id,
-            Backup.submit == True
-        ).order_by(Backup.created.desc())
+            Backup.submit == True,
+            Backup.share == True
+        ).order_by(Backup.feedback_score.desc(), Backup.upvote_count.desc())
 
     def final_submission(self, user_ids):
         """ Return a final submission for a user, or None."""
@@ -843,6 +844,100 @@ class Assignment(Model):
         ).one_or_none()
         if backup:
             backup.flagged = False
+
+    @transaction
+    def share(self, backup_id, member_ids):
+        """ Share a submission."""
+        backup = Backup.query.filter(
+            Backup.id == backup_id,
+            Backup.submitter_id.in_(member_ids),
+            Backup.share == False
+        ).one_or_none()
+        if not backup:
+            raise BadRequest('Could not find backup')
+        if not backup.submit:
+            backup.submit = True
+        backup.share = True
+        return backup
+
+    @transaction
+    def unshare(self, backup_id, member_ids):
+        """ Unshare a submission."""
+        backup = Backup.query.filter(
+            Backup.id == backup_id,
+            Backup.submitter_id.in_(member_ids),
+            Backup.share == True
+        ).one_or_none()
+        if not backup:
+            raise BadRequest('Could not find backup')
+        backup.share = False
+        return backup
+
+    @transaction
+    def upvote(self, user_id, backup_id):
+        """ Upvote a backup if it's not upvoted by user.
+        Otherwise, undo upvote."""
+        backup = Backup.query.filter(
+            Backup.id == backup_id
+        ).one_or_none()
+        if not backup:
+            raise BadRequest('Could not find backup')
+
+        feedback = Feedback.query.filter(
+            Feedback.user_id == user_id,
+            Feedback.backup_id == backup_id
+        ).one_or_none()
+        if not feedback:
+            feedback = Feedback(
+                user_id=user_id,
+                backup_id=backup_id,
+                positive=True
+            )
+            db.session.add(feedback)
+            backup.upvote_count += 1
+        elif feedback.positive:
+            db.session.delete(feedback)
+            backup.upvote_count -= 1
+        else:
+            feedback.positive = True
+            db.session.add(feedback)
+            backup.upvote_count += 1
+            backup.downvote_count += 1
+        db.session.add(backup)
+        return backup
+
+    @transaction
+    def downvote(self, user_id, backup_id):
+        """ Downvote a backup if it's not downvoted by user.
+        Otherwise, undo downvote."""
+        backup = Backup.query.filter(
+            Backup.id == backup_id
+        ).one_or_none()
+        if not backup:
+            raise BadRequest('Could not find backup')
+
+        feedback = Feedback.query.filter(
+            Feedback.user_id == user_id,
+            Feedback.backup_id == backup_id
+        ).one_or_none()
+        if not feedback:
+            feedback = Feedback(
+                user_id=user_id,
+                backup_id=backup_id,
+                positive=False
+            )
+            db.session.add(feedback)
+            backup.downvote_count += 1
+        elif not feedback.positive:
+            db.session.delete(feedback)
+            backup.downvote_count -= 1
+        else:
+            feedback.positive = False
+            db.session.add(feedback)
+            backup.downvote_count += 1
+            backup.upvote_count -= 1
+        db.session.add(backup)
+        return backup
 
     @transaction
     def publish_score(self, tag):
@@ -999,16 +1094,23 @@ class Backup(Model):
     comments = db.relationship("Comment", order_by="Comment.created")
     external_files = db.relationship("ExternalFile")
 
+    # If the submitter want to grant other users read access to this backup
+    share = db.Column(db.Boolean(), nullable=False, default=False, index=True)
+
+    # These fields must be manually updated, see the Feedback class for details
+    upvote_count = db.Column(db.Integer(), nullable=False, default=0)
+    downvote_count = db.Column(db.Integer(), nullable=False, default=0)
+
     # Already have indexes for submitter_id and assignment_id due to FK
     db.Index('idx_backupCreated', 'created')
 
     @classmethod
     def create(cls, submitter, assignment_id=None, assignment=None, submit=False,
-            creator=None, created=None, custom_submission_time=None):
+            share=None, creator=None, created=None, custom_submission_time=None):
         created = created or db.func.now()
         assignment_id = assignment_id or assignment.id
         backup = cls(submitter=submitter, assignment_id=assignment_id,
-                creator=creator, submit=submit, created=created,
+                creator=creator, submit=submit, share=share, created=created,
                 custom_submission_time=custom_submission_time)
         db.session.add(backup)
 
@@ -1030,8 +1132,13 @@ class Backup(Model):
             return False
         elif user.is_admin:
             return True
-        elif action == "view" and user.id in obj.owners():
-            # Only allow group members to view
+        elif action == "edit" and user.id in obj.owners():
+            # Only allow group members to edit (flag/share/...)
+            return True
+        elif action == "view" and user.id in obj.owners() \
+                or obj.share and dt.datetime.now() > obj.assignment.lock_date:
+            # Also allow others to view when `share` is True
+            # and the assignment has been locked
             return True
         return user.is_enrolled(obj.assignment.course.id, STAFF_ROLES)
 
@@ -1063,6 +1170,10 @@ class Backup(Model):
         if self.custom_submission_time:
             return self.custom_submission_time
         return self.created
+
+    @hybrid_property
+    def feedback_score(self):
+        return self.upvote_count - self.downvote_count
 
     # @hybrid_property
     # def group(self):
@@ -1132,6 +1243,26 @@ class Backup(Model):
             WHERE backup.created >= NOW() - '1 day'::INTERVAL
             GROUP BY date_trunc('hour', backup.created)
             ORDER BY date_trunc('hour', backup.created)""")).all()
+
+
+class Feedback(Model):
+    """ Feedbacks a backup receive from other users.
+
+    Must be kept consistent with Backup.upvote_count and Backup.downvote_count.
+    Currently I'm updating them manually. Yeah, that's stupid.
+    """
+    __tablename__ = 'feedback'
+    __table_args__ = (
+        PrimaryKeyConstraint('user_id', 'backup_id'),
+    )
+
+    user_id = db.Column(db.ForeignKey("user.id"), index=True, nullable=False)
+    backup_id = db.Column(db.ForeignKey("backup.id"), index=True,
+                          nullable=False)
+    positive = db.Column(db.Boolean(), nullable=False)
+
+    user = db.relationship("User", backref=backref("feedback", lazy="dynamic"))
+    backup = db.relationship("Backup", backref=backref("feedback", lazy="dynamic"))
 
 
 class GroupMember(Model):

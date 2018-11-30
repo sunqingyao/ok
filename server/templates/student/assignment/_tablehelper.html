@@ -1,7 +1,7 @@
 {% import 'student/assignment/_formhelpers.html' as forms %}
 {% import '_globalhelpers.html' as globals %}
 
-{% macro render_subms(subms, course, flagged, flag_form, tname="Submissions", empty=True) %}
+{% macro render_subms(subms, course, flagged, flag_share_form, tname="Submissions", empty=True) %}
   {% if subms %}
   <div class="list hidden-xs hidden-sm">
     <div class="wrap">
@@ -11,6 +11,7 @@
           <th class="col-id">ID</th>
           <th class="col-author">Author</th>
           <th class="col-flag">Flag</th>
+          <th class="col-share">Share</th>
           <th class="col-code">Code</th>
         </tr>
         {% for subm in subms %}
@@ -28,7 +29,7 @@
             </div>
           </td>
           <td>
-            {% call forms.render_form(flag_form, action_url=url_for('.flag', name=assignment.name, bid=subm.id), class_='form-inline') %}
+            {% call forms.render_form(flag_share_form, action_url=url_for('.flag', name=assignment.name, bid=subm.id), class_='form-inline') %}
               {% if not subm.flagged %}
                 <input type="hidden" name="flag">
               {% endif %}
@@ -49,12 +50,31 @@
               </button>
             {% endcall %}
           </td>
+            <td>
+            {% call forms.render_form(flag_share_form, action_url=url_for('.share', name=assignment.name, bid=subm.id), class_='form-inline') %}
+              {% if not subm.share %}
+                <input type="hidden" name="share">
+              {% endif %}
+              <input type="hidden" name="next" value="{{ request.url }}">
+              <button class="flag-button tip-trigger final-button button-small" type="submit">
+                <div class="tip">
+                  {% if subm.share %}
+                    <span>Visible to others (click to unshare)</span>
+                  {% else %}
+                    <span>Hidden from others (click to share)</span>
+                  {% endif %}
+                </div>
+
+                <i class="fa fa-upload final-{{ 'yes' if subm.share else 'no' }}"></i>
+                &nbsp; {{ 'Unshare' if subm.share else 'Share' }}
+              </button>
+            {% endcall %}
+          </td>
 
           <td>
               <a href="{{ url_for('.code', name=assignment.name, bid=subm.id, submit=subm.submit)}}" class="view-code no-dash button-small" data-no-instant>
                 View Code
               </a>
-          </td>
           </td>
         </tr>
         {% endfor %}
@@ -133,7 +153,7 @@
   {% endif %}
 {% endmacro %}
 
-{% macro render_zombies(zombies, course, flagged, flag_form, tname="Zombies", empty=True) %}
+{% macro render_zombies(zombies, course, flagged, vote_form, tname="Zombies", empty=True) %}
   {% if zombies %}
   <div class="list hidden-xs hidden-sm">
     <div class="wrap">
@@ -142,6 +162,7 @@
         <tr class="header">
           <th class="col-id">ID</th>
           <th class="col-author">Author</th>
+          <th class="col-feedback">Feedback</th>
           <th class="col-code">Code</th>
         </tr>
         {% for zombie in zombies %}
@@ -158,6 +179,26 @@
               <span class="due-date">{{ utils.local_time(zombie.created, course) }}</span>
             </div>
           </td>
+            <td>
+
+              {% call forms.render_form(vote_form, action_url=url_for('.vote', name=assignment.name, bid=zombie.id), class_='form-inline') %}
+              <input type="hidden" name="type" value="up">
+              <input type="hidden" name="next" value="{{ request.url }}">
+              <button class="convert-button tip-trigger final-button button-small" type="submit">
+              <i class="fa fa-arrow-up final-{{ 'yes' if upvoted(current_user, zombie) else 'no' }}"></i>
+                  Upvotes: {{ zombie.upvote_count }}
+              </button>
+              {% endcall %}
+
+            {% call forms.render_form(vote_form, action_url=url_for('.vote', name=assignment.name, bid=zombie.id), class_='form-inline') %}
+              <input type="hidden" name="type" value="down">
+              <input type="hidden" name="next" value="{{ request.url }}">
+              <button class="convert-button tip-trigger final-button button-small" type="submit">
+              <i class="fa fa-arrow-down final-{{ 'yes' if downvoted(current_user, zombie) else 'no' }}"></i>
+                  Downvotes: {{ zombie.downvote_count }}
+              </button>
+              {% endcall %}
+            </td>
           <td>
               <a href="{{ url_for('.zombie', name=assignment.name, bid=zombie.id, submit=zombie.submit)}}" class="no-dash button-small" data-no-instant>
                 View Code
@@ -177,7 +218,7 @@
   {% endif %}
 {% endmacro %}
 
-{% macro render_subms_mobile(subms, course, flagged, flag_form, tname="Submissions", empty=True) %}
+{% macro render_subms_mobile(subms, course, flagged, flag_share_form, tname="Submissions", empty=True) %}
   {% if subms %}
   <div class="subcontent list hidden-md hidden-lg">
     <div class="wrap">
@@ -194,7 +235,7 @@
           {% elif not flagged and loop.index == 1 %}
 
               <i class="fa fa-clock-o grey"></i> This is the most recent submission.
-              Unless you flag another submission, the most recent submission will be graded</span>
+              Unless you flag another submission, the most recent submission will be graded
               {% else %}
             <div class="due-dot grey"></div> Not flagged for grading.
           {% endif %}
@@ -204,18 +245,24 @@
         <hr>
         <div class="cell-footer">
             <div class="pull-left">
-                <a href="{{url_for('.code', name=assignment.name, bid=subm.id, submit=subm.submit)}}" class="dashed" data-no-instant>
-                    View Code
-                </a>
-            </div>
-            <div class="pull-right">
-                {% call forms.render_form(flag_form, action_url=url_for('.flag', name=assignment.name, bid=subm.id), class_='form-inline') %}
+                {% call forms.render_form(flag_share_form, action_url=url_for('.flag', name=assignment.name, bid=subm.id), class_='form-inline') %}
                   {% if not subm.flagged %}
                     <input type="hidden" name="flag">
                   {% endif %}
                   <input type="hidden" name="next" value="{{ request.url }}">
                   <button class="final-button" type="submit">
                       <a class="dashed">{{ 'Remove Flag for Grading' if subm.flagged else 'Flag for Grading' }} </a>
+                  </button>
+                {% endcall %}
+            </div>
+            <div class="pull-right">
+                {% call forms.render_form(flag_share_form, action_url=url_for('.share', name=assignment.name, bid=subm.id), class_='form-inline') %}
+                  {% if not subm.share %}
+                    <input type="hidden" name="share">
+                  {% endif %}
+                  <input type="hidden" name="next" value="{{ request.url }}">
+                  <button class="final-button" type="submit">
+                      <a class="dashed">{{ 'Unshare' if subm.share else 'Share' }} </a>
                   </button>
                 {% endcall %}
             </div>
@@ -275,7 +322,7 @@
   {% endif %}
 {% endmacro %}
 
-{% macro render_zombies_mobile(zombies, course, flagged, flag_form, tname="Zombies", empty=True) %}
+{% macro render_zombies_mobile(zombies, course, flagged, vote_form, tname="Zombies", empty=True) %}
   {% if zombies %}
   <div class="subcontent list hidden-md hidden-lg">
     <div class="wrap">
@@ -287,9 +334,24 @@
         <div class="cell-text"><span>Submitter:  {{ zombie.submitter.email }}</span></div>
         <div class="cell-status">
             <div class="pull-left">
-                <a href="{{url_for('.zombie', name=assignment.name, bid=zombie.id, submit=zombie.submit)}}" class="dashed" data-no-instant>
-                    View Code
-                </a>
+                {% call forms.render_form(vote_form, action_url=url_for('.vote', name=assignment.name, bid=zombie.id), class_='form-inline') %}
+              <input type="hidden" name="type" value="up">
+              <input type="hidden" name="next" value="{{ request.url }}">
+              <button class="convert-button tip-trigger final-button button-small" type="submit">
+              <i class="fa fa-arrow-up final-{{ 'yes' if upvoted(current_user, zombie) else 'no' }}"></i>
+                  Upvotes: {{ zombie.upvote_count }}
+              </button>
+              {% endcall %}
+            </div>
+            <div class="pull-right">
+                {% call forms.render_form(vote_form, action_url=url_for('.vote', name=assignment.name, bid=zombie.id), class_='form-inline') %}
+              <input type="hidden" name="type" value="down">
+              <input type="hidden" name="next" value="{{ request.url }}">
+              <button class="convert-button tip-trigger final-button button-small" type="submit">
+              <i class="fa fa-arrow-down final-{{ 'yes' if downvoted(current_user, zombie) else 'no' }}"></i>
+                  Downvotes: {{ zombie.downvote_count }}
+              </button>
+              {% endcall %}
             </div>
         </div>
       </div>
